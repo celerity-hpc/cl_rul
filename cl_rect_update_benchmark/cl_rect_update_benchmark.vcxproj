@@ -161,6 +161,9 @@
   <ItemGroup>
     <ClInclude Include="ext\catch.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="cl_rect_update_benchmark.cl" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

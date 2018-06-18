@@ -71,9 +71,9 @@ namespace cl_rul {
 			return ss.str();
 		}
 
-		#define BTYPE(_htype, _dtype) template<> const std::string get_type_string<_htype>() { return #_dtype; }
+		#define BUF_TYPE(_htype, _dtype) template<> const std::string get_type_string<_htype>() { return #_dtype; }
 		#include "buffer_types.inc"
-		#undef BTYPE
+		#undef BUF_TYPE
 
 		template<typename T>
 		cl_kernel get_upload_kernel_2D() {
@@ -112,9 +112,9 @@ namespace cl_rul {
 		detail::g_device = device;
 
 		// TODO make pre-compilation configurable? could take some time
-		#define BTYPE(_htype, _dtype) detail::get_upload_kernel_2D<_htype>();
+		#define BUF_TYPE(_htype, _dtype) detail::get_upload_kernel_2D<_htype>();
 		#include "buffer_types.inc"
-		#undef BTYPE
+		#undef BUF_TYPE
 	}
 
 
@@ -136,25 +136,22 @@ namespace cl_rul {
 		template<typename T>
 		struct rect_uploader<T, Individual> {
 			cl_event operator()(cl_command_queue queue, cl_mem target_buffer, const Extent& target_buffer_size, const Box& target_box, const T *linearized_host_data_source) {
-				cl_event ev_ret;
-
-				size_t s = target_buffer_size.size();
-				thread_local vector<T> staging_buffer;
-				staging_buffer.(s);
+				cl_event ev_ret = nullptr;
 
 				const Point& o = target_box.origin;
 				const Extent& e = target_box.extent;
 				const Extent& full_e = target_buffer_size;
 
-				T* source_ptr = linearized_host_data_source;
+				const T* source_ptr = linearized_host_data_source;
 
 				size_t zend = o.z + e.zs;
 				size_t yend = o.y + e.ys;
 				for(size_t z = o.z; z < zend; z++) {
 					for(size_t y = o.y; y < yend; y++) {
 						bool last = z == zend - 1 && y == yend - 1;
-						size_t offset = full_e.row_offset(y, z);
-						cl_int errcode = clEnqueueWriteBuffer(queue, target_buffer, CL_FALSE, offset * sizeof(T), e.xs * sizeof(T), source_ptr, 0, NULL, last ? ev_ret : NULL);
+						size_t offset = full_e.row_offset(y, z) + o.x;
+						//printf("cl_rect_update_lib - individual upload offset: %8u ; range: %8u\n", (unsigned)(offset * sizeof(T)), (unsigned)(e.xs * sizeof(T)));
+						cl_int errcode = clEnqueueWriteBuffer(queue, target_buffer, CL_FALSE, offset * sizeof(T), e.xs * sizeof(T), source_ptr, 0, NULL, last ? &ev_ret : NULL);
 						CLU_ERRCHECK(errcode, "cl_rect_update_lib - upload_rect: error enqueueing individual transfer");
 					}
 				}
@@ -174,11 +171,11 @@ namespace cl_rul {
 
 				const size_t buffer_origin[3] = { o.x, o.y, o.z };
 				const size_t host_origin[3] = { 0, 0, 0 };
-				const size_t region[3] = { e.x, e.y, e.z };
+				const size_t region[3] = { e.xs * sizeof(T), e.ys, e.zs };
 				size_t buffer_row_pitch = full_e.xs * sizeof(T);
 				size_t buffer_slice_pitch = full_e.slice_size() * sizeof(T);
-				size_t host_row_pitch = sizeof(T);
-				size_t host_slice_pitch = 0;
+				size_t host_row_pitch = e.xs * sizeof(T);
+				size_t host_slice_pitch = e.slice_size() * sizeof(T);
 				cl_int errcode = clEnqueueWriteBufferRect(queue, target_buffer, CL_FALSE,
 					buffer_origin, host_origin, region,
 					buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch,
@@ -268,7 +265,146 @@ namespace cl_rul {
 	}
 
 
+	/// Download functions ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	namespace detail {
+		template<typename T, typename Method = Automatic>
+		struct rect_downloader {
+			cl_event operator()(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target);
+		};
+
+		template<typename T>
+		struct rect_downloader<T, Individual> {
+			cl_event operator()(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target) {
+				cl_event ev_ret;
+
+				size_t s = source_buffer_size.size();
+				thread_local vector<T> staging_buffer;
+				staging_buffer.(s);
+
+				const Point& o = source_box.origin;
+				const Extent& e = source_box.extent;
+				const Extent& full_e = source_buffer_size;
+
+				T* trg_ptr = linearized_host_data_target;
+
+				size_t zend = o.z + e.zs;
+				size_t yend = o.y + e.ys;
+				for(size_t z = o.z; z < zend; z++) {
+					for(size_t y = o.y; y < yend; y++) {
+						bool last = z == zend - 1 && y == yend - 1;
+						size_t offset = full_e.row_offset(y, z);
+						cl_int errcode = clEnqueueReadBuffer(queue, target_buffer, CL_FALSE, offset * sizeof(T), e.xs * sizeof(T), source_ptr, 0, NULL, last ? ev_ret : NULL);
+						CLU_ERRCHECK(errcode, "cl_rect_update_lib - upload_rect: error enqueueing individual transfer");
+					}
+				}
+
+				return ev_ret;
+			}
+		};
+
+		template<typename T>
+		struct rect_downloader<T, ClRect> {
+			cl_event operator()(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target) {
+				cl_event ev_ret;
+
+				const Point& o = target_box.origin;
+				const Extent& e = target_box.extent;
+				const Extent& full_e = target_buffer_size;
+
+				const size_t buffer_origin[3] = { o.x, o.y, o.z };
+				const size_t host_origin[3] = { 0, 0, 0 };
+				const size_t region[3] = { e.x, e.y, e.z };
+				size_t buffer_row_pitch = full_e.xs * sizeof(T);
+				size_t buffer_slice_pitch = full_e.slice_size() * sizeof(T);
+				size_t host_row_pitch = sizeof(T);
+				size_t host_slice_pitch = 0;
+				cl_int errcode = clEnqueueWriteBufferRect(queue, target_buffer, CL_FALSE,
+					buffer_origin, host_origin, region,
+					buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch,
+					linearized_host_data_source, 0, NULL, &ev_ret);
+				CLU_ERRCHECK(errcode, "cl_rect_upate_lib - upload_rect: error enqueueing clrect transfer");
+
+				return ev_ret;
+			}
+		};
+
+		template<typename T>
+		cl_event upload_rect_kernel_2D(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target) {
+
+			// transfer linearly to staging buffer
+
+			size_t required_staging_size = target_box.size() * sizeof(T);
+			cl_mem staging_buffer = get_staging_buffer(required_staging_size);
+			cl_event ev_staging;
+			cl_int errcode = clEnqueueWriteBuffer(queue, staging_buffer, CL_FALSE, 0, required_staging_size, linearized_host_data_source, 0, NULL, &ev_staging);
+			CLU_ERRCHECK(errcode, "cl_rect_upate_lib - error enqueueing staging transfer");
+
+			const Point& o = target_box.origin;
+			const Extent& e = target_box.extent;
+			const Extent& full_e = target_buffer_size;
+
+			// use kernel to write to final destination
+			// parameters:
+			//		__global v_t *src, __global v_t *trg,
+			//		uint pos_x, uint pos_y,
+			//		uint size_x, uint size_y,
+			//		uint stride
+
+			cl_kernel kernel = get_upload_kernel_2D<T>();
+
+			cl_event ev_kernel;
+			cl_uint pos_x = static_cast<cl_uint>(o.x), pos_y = static_cast<cl_uint>(o.y);
+			cl_uint size_x = static_cast<cl_uint>(e.xs), size_y = static_cast<cl_uint>(e.ys);
+			cl_uint stride = static_cast<cl_uint>(full_e.xs);
+			cluSetKernelArguments(kernel, 7,
+				sizeof(cl_mem), &staging_buffer, sizeof(cl_mem), &target_buffer,
+				sizeof(cl_uint), &pos_x, sizeof(cl_uint), &pos_y,
+				sizeof(cl_uint), &size_x, sizeof(cl_uint), &size_y,
+				sizeof(cl_uint), &stride);
+			size_t global_size = target_box.size();
+			errcode = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_size, 0, 0, NULL, &ev_kernel);
+			CLU_ERRCHECK(errcode, "cl_rect_upate_lib - error enqueueing upload kernel");
+
+			return ev_kernel;
+		}
+
+		template<typename T>
+		struct rect_downloader<T, Kernel> {
+			cl_event operator()(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target) {
+				cl_event ev_ret = nullptr;
+
+				const Point& o = target_box.origin;
+				const Extent& e = target_box.extent;
+				const Extent& full_e = target_buffer_size;
+
+				// if 1D, just use simple transfer
+				if(e.ys == 1 && e.zs == 1) {
+					cl_int errcode = clEnqueueWriteBuffer(queue, target_buffer, CL_FALSE, o.x * sizeof(T), e.xs * sizeof(T), linearized_host_data_source, 0, NULL, &ev_ret);
+					CLU_ERRCHECK(errcode, "cl_rect_upate_lib - upload_rect: error enqueueing transfer");
+					return ev_ret;
+				}
+
+				// if 2D or 3D use linearized transfer and specialized kernel
+				if(e.zs == 1) return upload_rect_kernel_2D<T>(queue, target_buffer, target_buffer_size, target_box, linearized_host_data_source);
+
+				assert(false && "3D kernel transfer not implemented yet");
+				return ev_ret;
+			}
+		};
+
+		template<typename T>
+		struct rect_downloader<T, Automatic> {
+			cl_event operator()(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target) {
+				// try being smarter later
+				return rect_downloader<T, Kernel>()(queue, target_buffer, target_buffer_size, target_box, linearized_host_data_source);
+			}
+		};
+	}
+
 	template<typename T, typename Method = Automatic>
-	cl_event download_rect(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target);
+	cl_event download_rect(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target) {
+		return detail::rect_downloader<T, Method>{}(queue, source_buffer, source_buffer_size, source_box, linearized_host_data_target);
+	}
 
 } // namespace cl_rul

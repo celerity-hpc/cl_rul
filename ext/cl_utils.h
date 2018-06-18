@@ -1,7 +1,9 @@
 #pragma once
 
 #define CL_USE_DEPRECATED_OPENCL_2_0_APIS
+#ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
+#endif
 
 #include <CL/cl.h>
 #include <assert.h>

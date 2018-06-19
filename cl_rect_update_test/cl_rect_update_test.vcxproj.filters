@@ -18,7 +18,10 @@
     <ClCompile Include="cl_rect_update_test.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="test1D.cpp">
+    <ClCompile Include="test_1D.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test_2D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

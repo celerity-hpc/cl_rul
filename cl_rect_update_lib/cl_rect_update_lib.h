@@ -39,7 +39,7 @@ namespace cl_rul {
 		}
 	};
 
-	using Box = struct {
+	struct Box {
 		Point origin;
 		Extent extent;
 
@@ -55,8 +55,21 @@ namespace cl_rul {
 		constexpr const char* UPLOAD_2D_KERNEL_NAME = "upload_2D";
 		constexpr const char* DOWNLOAD_2D_KERNEL_NAME = "download_2D";
 
-		cl_context g_context;
-		cl_device_id g_device;
+		// workaround until C++ 17 inline globals are more widely available
+
+		inline cl_context get_global_context(cl_context c_in = nullptr) {
+			static cl_context g_context;
+			if(c_in) g_context = c_in;
+			assert(g_context && "cl_rect_upate_lib - request global context before setting it -- did you call init_rect_update_lib?");
+			return g_context;
+		}
+
+		inline cl_device_id get_global_device(cl_device_id dev_in = nullptr) {
+			static cl_device_id g_device;
+			if(dev_in) g_device = dev_in;
+			assert(g_device && "cl_rect_upate_lib - request global device before setting it -- did you call init_rect_update_lib?");
+			return g_device;
+		}
 
 		/// Kernel management
 
@@ -76,18 +89,18 @@ namespace cl_rul {
 			return ss.str();
 		}
 
-		#define BUF_TYPE(_htype, _dtype) template<> const std::string get_type_string<_htype>() { return #_dtype; }
+		#define BUF_TYPE(_htype, _dtype) template<> inline const std::string get_type_string<_htype>() { return #_dtype; }
 		#include "buffer_types.inc"
 		#undef BUF_TYPE
 
 		template<typename T>
-		cl_kernel get_upload_kernel_2D() {
+		inline cl_kernel get_upload_kernel_2D() {
 			if(!detail::g_upload_kernel_2D<T>) {
 				std::stringstream ss;
 				ss << "-D T=" << get_type_string<T>() << std::flush;
 				std::string options = ss.str();
 				//printf("options: \"%s\"\n", options.c_str());
-				detail::g_upload_program_2D<T> = cluBuildProgramFromString(g_context, g_device, kernels::upload_2D, options.c_str());
+				detail::g_upload_program_2D<T> = cluBuildProgramFromString(get_global_context(), get_global_device(), kernels::upload_2D, options.c_str());
 				cl_int errcode = CL_SUCCESS;
 				detail::g_upload_kernel_2D<T> = clCreateKernel(detail::g_upload_program_2D<T>, UPLOAD_2D_KERNEL_NAME, &errcode);
 				CLU_ERRCHECK(errcode, "cl_rect_update_lib - 2d upload kernel loading error for type: %s", options.c_str());
@@ -96,12 +109,12 @@ namespace cl_rul {
 		}
 
 		template<typename T>
-		cl_kernel get_download_kernel_2D() {
+		inline cl_kernel get_download_kernel_2D() {
 			if(!detail::g_download_kernel_2D<T>) {
 				std::stringstream ss;
 				ss << "-D T=" << get_type_string<T>() << std::flush;
 				std::string options = ss.str();
-				detail::g_download_program_2D<T> = cluBuildProgramFromString(g_context, g_device, kernels::download_2D, options.c_str());
+				detail::g_download_program_2D<T> = cluBuildProgramFromString(get_global_context(), get_global_device(), kernels::download_2D, options.c_str());
 				cl_int errcode = CL_SUCCESS;
 				detail::g_download_kernel_2D<T> = clCreateKernel(detail::g_download_program_2D<T>, DOWNLOAD_2D_KERNEL_NAME, &errcode);
 				CLU_ERRCHECK(errcode, "cl_rect_update_lib - 2D download kernel loading error for type: %s", options.c_str());
@@ -111,14 +124,14 @@ namespace cl_rul {
 
 		/// Buffer management
 
-		cl_mem get_staging_buffer(size_t size_in_bytes) {
+		inline cl_mem get_staging_buffer(size_t size_in_bytes) {
 			thread_local cl_mem buff = nullptr;
 			thread_local size_t allocated_size = 0;
 			//printf("cl_rect_update_lib - requesting staging buffer of size %u, available: %u at %p\n", (unsigned)size_in_bytes, (unsigned)allocated_size, buff);
 			if(allocated_size < size_in_bytes) {
 				if(buff) clReleaseMemObject(buff);
 				cl_int errcode = CL_SUCCESS;
-				buff = clCreateBuffer(g_context, CL_MEM_READ_WRITE, size_in_bytes, nullptr, &errcode);
+				buff = clCreateBuffer(get_global_context(), CL_MEM_READ_WRITE, size_in_bytes, nullptr, &errcode);
 				CLU_ERRCHECK(errcode, "cl_rect_update_lib - error allocating staging buffer of size %u", (unsigned)size_in_bytes);
 				//printf("cl_rect_update_lib - (re-)allocated staging buffer of size %u\n", (unsigned)size_in_bytes);
 			}
@@ -126,9 +139,10 @@ namespace cl_rul {
 		}
 	}
 
-	void init_rect_update_lib(cl_context context, cl_device_id device) {
-		detail::g_context = context;
-		detail::g_device = device;
+	inline void init_rect_update_lib(cl_context context, cl_device_id device) {
+		// *set* the globals
+		detail::get_global_context(context);
+		detail::get_global_device(device);
 
 		// TODO make pre-compilation configurable? could take some time
 		#define BUF_TYPE(_htype, _dtype) detail::get_upload_kernel_2D<_htype>();

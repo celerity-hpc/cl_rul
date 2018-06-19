@@ -36,29 +36,29 @@ if(__err != CL_SUCCESS) { \
 
 // initialize opencl device "num" -- devices are numbered sequentially across all platforms
 // if supplied, "command_queue" and "context" are filled with an initialized context and command queue on the device
- cl_device_id cluInitDevice(size_t num, cl_context *out_context, cl_command_queue *out_queue);
+inline cl_device_id cluInitDevice(size_t num, cl_context *out_context, cl_command_queue *out_queue);
 
 // get string with basic information about the ocl device "device" with id "id"
-const char* cluGetDeviceDescription(const cl_device_id device, unsigned id);
+inline const char* cluGetDeviceDescription(const cl_device_id device, unsigned id);
 
 // loads and builds program from "fn" on the supplied context and device, with the options string "options"
 // aborts and reports the build log in case of compiler errors
- cl_program cluBuildProgramFromFile(cl_context context, cl_device_id device_id, const char* fn, const char* options);
+inline cl_program cluBuildProgramFromFile(cl_context context, cl_device_id device_id, const char* fn, const char* options);
 
 // sets "num_arg" arguments for kernel "kernel"
 // additional arguments need to follow this order: arg0_size, arg0, arg1_size, arg1, ...
- void cluSetKernelArguments(const cl_kernel kernel, const cl_uint num_args, ...);
+inline void cluSetKernelArguments(const cl_kernel kernel, const cl_uint num_args, ...);
 
 // return string representation of ocl error code "err"
- const char* cluErrorString(cl_int err);
+inline const char* cluErrorString(cl_int err);
 
 // return string representation of ocl device type "type"
-const char* cluDeviceTypeString(cl_device_type type);
+inline const char* cluDeviceTypeString(cl_device_type type);
 
 
 // ------------------------------------------------------------------------------------------------ implementations
 
- cl_device_id cluInitDevice(size_t num, cl_context *out_context, cl_command_queue *out_queue) {
+inline cl_device_id cluInitDevice(size_t num, cl_context *out_context, cl_command_queue *out_queue) {
 	// get platform ids
 	cl_uint ret_num_platforms;
 	CLU_ERRCHECK(clGetPlatformIDs(0, NULL, &ret_num_platforms), "Failed to query number of ocl platforms");
@@ -95,7 +95,7 @@ const char* cluDeviceTypeString(cl_device_type type);
 }
 
 
- void cluLoadSource(const char* fn, size_t max_len, char* source_buffer) {
+inline void cluLoadSource(const char* fn, size_t max_len, char* source_buffer) {
 	FILE *fp;
 	fp = fopen(fn, "r");
 	if(!fp) {
@@ -109,7 +109,7 @@ const char* cluDeviceTypeString(cl_device_type type);
 }
 
 
- cl_program cluBuildProgramFromFile(cl_context context, cl_device_id device_id, const char* fn, const char* options) {
+inline cl_program cluBuildProgramFromFile(cl_context context, cl_device_id device_id, const char* fn, const char* options) {
 	cl_int err;
 
 	// create kernel programs from source
@@ -133,7 +133,7 @@ const char* cluDeviceTypeString(cl_device_type type);
 	return program;
 }
 
- cl_program cluBuildProgramFromString(cl_context context, cl_device_id device_id, const char* source_str, const char* options) {
+inline cl_program cluBuildProgramFromString(cl_context context, cl_device_id device_id, const char* source_str, const char* options) {
 	 cl_int err;
 
 	 // create kernel programs from source
@@ -156,7 +156,7 @@ const char* cluDeviceTypeString(cl_device_type type);
  }
 
 
- void cluSetKernelArguments(const cl_kernel kernel, const cl_uint num_args, ...) {
+inline void cluSetKernelArguments(const cl_kernel kernel, const cl_uint num_args, ...) {
 	//loop through the arguments and call clSetKernelArg for each
 	size_t arg_size;
 	const void *arg_val;
@@ -171,20 +171,20 @@ const char* cluDeviceTypeString(cl_device_type type);
 }
 
 
- void cluGetDeviceName(const cl_device_id device, const size_t buff_size, char *buffer) {
+inline void cluGetDeviceName(const cl_device_id device, const size_t buff_size, char *buffer) {
 	CLU_ERRCHECK(clGetDeviceInfo(device, CL_DEVICE_NAME, buff_size, buffer, NULL), "Error getting \"device name\" info");
 }
- void cluGetDeviceVendor(const cl_device_id device, const size_t buff_size, char *buffer) {
+inline void cluGetDeviceVendor(const cl_device_id device, const size_t buff_size, char *buffer) {
 	CLU_ERRCHECK(clGetDeviceInfo(device, CL_DEVICE_VENDOR, buff_size, buffer, NULL), "Error getting \"device vendor\" info");
 }
- cl_device_type cluGetDeviceType(cl_device_id device) {
+inline cl_device_type cluGetDeviceType(cl_device_id device) {
 	cl_device_type retval;
 	CLU_ERRCHECK(clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(retval), &retval, NULL), "Error getting \"device type\" info");
 	return retval;
 }
 
 #define MAX_DEVICES 16
-const char* cluGetDeviceDescription(const cl_device_id device, unsigned id) {
+inline const char* cluGetDeviceDescription(const cl_device_id device, unsigned id) {
 	static char descriptions[MAX_DEVICES][128];
 	static cl_bool initialized[MAX_DEVICES];
 	assert(id<MAX_DEVICES && "Device limit exceeded");
@@ -197,8 +197,7 @@ const char* cluGetDeviceDescription(const cl_device_id device, unsigned id) {
 	return descriptions[id];
 }
 
-
- const char* cluDeviceTypeString(cl_device_type type) {
+inline const char* cluDeviceTypeString(cl_device_type type) {
 	switch(type){
 		case CL_DEVICE_TYPE_CPU: return "CPU";
 		case CL_DEVICE_TYPE_GPU: return "GPU";
@@ -207,8 +206,7 @@ const char* cluGetDeviceDescription(const cl_device_id device, unsigned id) {
 	return "UNKNOWN";
 }
 
-
- const char* cluErrorString(cl_int err) {
+inline const char* cluErrorString(cl_int err) {
 	static char buffer[1024];
 	switch(err)
 	{

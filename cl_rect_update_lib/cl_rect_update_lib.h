@@ -71,6 +71,15 @@ namespace cl_rul {
 			return g_device;
 		}
 
+		inline void check_global_state_validity(cl_command_queue queue) {
+			cl_context local_ctx;
+			clGetCommandQueueInfo(queue, CL_QUEUE_CONTEXT, sizeof(cl_context), &local_ctx, nullptr);
+			assert(local_ctx == get_global_context());
+			cl_device_id local_dev;
+			clGetCommandQueueInfo(queue, CL_QUEUE_DEVICE, sizeof(cl_device_id), &local_dev, nullptr);
+			assert(local_dev == get_global_device());
+		}
+
 		/// Kernel management
 
 		template<typename T>
@@ -133,7 +142,8 @@ namespace cl_rul {
 				cl_int errcode = CL_SUCCESS;
 				buff = clCreateBuffer(get_global_context(), CL_MEM_READ_WRITE, size_in_bytes, nullptr, &errcode);
 				CLU_ERRCHECK(errcode, "cl_rect_update_lib - error allocating staging buffer of size %u", (unsigned)size_in_bytes);
-				//printf("cl_rect_update_lib - (re-)allocated staging buffer of size %u\n", (unsigned)size_in_bytes);
+				//printf("cl_rect_update_lib - (re-)allocated staging buffer of size %u at %p\n", (unsigned)size_in_bytes, buff);
+				allocated_size = size_in_bytes;
 			}
 			return buff;
 		}
@@ -186,6 +196,7 @@ namespace cl_rul {
 						//printf("cl_rect_update_lib - individual upload offset: %8u ; range: %8u\n", (unsigned)(offset * sizeof(T)), (unsigned)(e.xs * sizeof(T)));
 						cl_int errcode = clEnqueueWriteBuffer(queue, target_buffer, CL_FALSE, offset * sizeof(T), e.xs * sizeof(T), source_ptr, 0, NULL, last ? &ev_ret : NULL);
 						CLU_ERRCHECK(errcode, "cl_rect_update_lib - upload_rect: error enqueueing individual transfer");
+						source_ptr += e.xs;
 					}
 				}
 
@@ -326,6 +337,7 @@ namespace cl_rul {
 						//printf("cl_rect_update_lib - individual download  offset: %8u ; range: %8u\n", (unsigned)(offset * sizeof(T)), (unsigned)(e.xs * sizeof(T)));
 						cl_int errcode = clEnqueueReadBuffer(queue, source_buffer, CL_FALSE, offset * sizeof(T), e.xs * sizeof(T), trg_ptr, 0, NULL, last ? &ev_ret : NULL);
 						CLU_ERRCHECK(errcode, "cl_rect_update_lib - download_rect: error enqueueing individual transfer");
+						trg_ptr += e.xs;
 					}
 				}
 
@@ -362,13 +374,13 @@ namespace cl_rul {
 		template<typename T>
 		cl_event download_rect_kernel_2D(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target) {
 
-			const Point& o = target_box.origin;
-			const Extent& e = target_box.extent;
-			const Extent& full_e = target_buffer_size;
+			const Point& o = source_box.origin;
+			const Extent& e = source_box.extent;
+			const Extent& full_e = source_buffer_size;
 
 			// get staging buffer
 
-			size_t required_staging_size = target_box.size() * sizeof(T);
+			size_t required_staging_size = e.size() * sizeof(T);
 			cl_mem staging_buffer = get_staging_buffer(required_staging_size);
 
 			// use kernel to write to staging buffer
@@ -385,18 +397,18 @@ namespace cl_rul {
 			cl_uint size_x = static_cast<cl_uint>(e.xs), size_y = static_cast<cl_uint>(e.ys);
 			cl_uint stride = static_cast<cl_uint>(full_e.xs);
 			cluSetKernelArguments(kernel, 7,
-				sizeof(cl_mem), &target_buffer, sizeof(cl_mem), &staging_buffer,
+				sizeof(cl_mem), &source_buffer, sizeof(cl_mem), &staging_buffer,
 				sizeof(cl_uint), &pos_x, sizeof(cl_uint), &pos_y,
 				sizeof(cl_uint), &size_x, sizeof(cl_uint), &size_y,
 				sizeof(cl_uint), &stride);
-			size_t global_size = target_box.size();
-			errcode = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_size, 0, 0, NULL, &ev_kernel);
+			size_t global_size = e.size();
+			cl_int errcode = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_size, 0, 0, NULL, &ev_kernel);
 			CLU_ERRCHECK(errcode, "cl_rect_upate_lib - error enqueueing download kernel");
 
 			// transfer from staging buffer to host
 
 			cl_event ev_staging;
-			cl_int errcode = clEnqueueReadBuffer(queue, staging_buffer, CL_FALSE, 0, required_staging_size, linearized_host_data_target, 0, NULL, &ev_staging);
+			errcode = clEnqueueReadBuffer(queue, staging_buffer, CL_FALSE, 0, required_staging_size, linearized_host_data_target, 0, NULL, &ev_staging);
 			CLU_ERRCHECK(errcode, "cl_rect_upate_lib - error enqueueing staging transfer");
 
 			return ev_staging;
@@ -430,7 +442,7 @@ namespace cl_rul {
 		struct rect_downloader<T, Automatic> {
 			cl_event operator()(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target) {
 				// try being smarter later
-				return rect_downloader<T, Kernel>()(queue, target_buffer, target_buffer_size, target_box, linearized_host_data_source);
+				return rect_downloader<T, Kernel>()(queue, source_buffer, source_buffer_size, source_box, linearized_host_data_target);
 			}
 		};
 	}

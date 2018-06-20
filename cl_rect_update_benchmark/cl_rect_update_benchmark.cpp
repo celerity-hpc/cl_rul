@@ -173,14 +173,14 @@ int main(int argc, char **argv) {
 				cl_event cl_ev_before; // just for measurement
 				clEnqueueWriteBuffer(queue, device_buffers[s], CL_FALSE, 0, 1, host_buffers[s], 0, NULL, &cl_ev_before);
 
-				cl_event cl_ev_transfer = cl_rul::upload_rect<float>(queue, device_buffers[s],
-					{ (size_t)side_lengths[s], (size_t)side_lengths[s], 1u }, { {0u,0u,0u}, {1u,(size_t)side_lengths[s],1u} }, (const float*)host_buffers[s]);
+				cl_event cl_ev_transfer = cl_rul::upload_rect<cl_float>(queue, device_buffers[s],
+					{ (size_t)side_lengths[s], (size_t)side_lengths[s], 1u }, { {0u,0u,0u}, {1u,(size_t)side_lengths[s],1u} }, (cl_float*)host_buffers[s]);
 
 				clFinish(queue);
 				cl_ulong start, end;
 				CLU_ERRCHECK(clGetEventProfilingInfo(cl_ev_before, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &start, NULL), "Error reading start time");
 				CLU_ERRCHECK(clGetEventProfilingInfo(cl_ev_transfer, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL), "Error reading end time");
-				results[s][5] = std::min(results[s][4], ((double)(end - start) / 1000.0));
+				results[s][5] = std::min(results[s][5], ((double)(end - start) / 1000.0));
 			}
 		}
 	}

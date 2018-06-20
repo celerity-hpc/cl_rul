@@ -120,8 +120,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="cl_rect_update_test.cc" />
+    <ClCompile Include="global_cl.cpp" />
     <ClCompile Include="test_1D.cpp" />
     <ClCompile Include="test_2D.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="global_cl.h" />
+    <ClInclude Include="test_utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

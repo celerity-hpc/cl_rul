@@ -1,22 +1,9 @@
 #include "../ext/catch.hpp"
 
-#include "../cl_rect_update_lib/cl_rect_update_lib.h"
+#include "global_cl.h"
+#include "test_utils.h"
 
 /// /////////////////////////////////////////////////////////////////////// Float
-
-template<typename T>
-void check_1D(T* a, T* b, size_t count) {
-	for(size_t i = 0; i < count; ++i) {
-		REQUIRE(a[i] == b[i]);
-	}
-}
-
-template<typename T>
-void print_1D(T* a, size_t count) {
-	for(size_t i = 0; i < count; ++i) {
-		printf("%u : %f\n", (unsigned)i, a[i]);
-	}
-}
 
 template<typename Method, size_t TEST_L>
 void partial_1D_float_upload_test(cl_command_queue queue, cl_mem device_buffer, cl_float* host_buffer2) {
@@ -39,12 +26,6 @@ void partial_1D_float_download_test(cl_command_queue queue, cl_mem device_buffer
 
 TEST_CASE("1D float buffers", "[1D]") {
 
-	cl_context context;
-	cl_command_queue queue;
-	cl_device_id dev = cluInitDevice(0, &context, &queue);
-
-	cl_rul::init_rect_update_lib(context, dev);
-
 	constexpr size_t TEST_L = 10;
 
 	cl_float host_buffer[TEST_L];
@@ -56,35 +37,31 @@ TEST_CASE("1D float buffers", "[1D]") {
 	}
 
 	cl_int errcode;
-	cl_mem device_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, TEST_L * sizeof(cl_float), host_buffer, &errcode);
+	cl_mem device_buffer = clCreateBuffer(GlobalCl::context(), CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, TEST_L * sizeof(cl_float), host_buffer, &errcode);
 	REQUIRE(errcode == CL_SUCCESS);
 
 	SECTION("partial upload [individual]") {
-		partial_1D_float_upload_test<cl_rul::Individual, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_float_upload_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 	SECTION("partial upload [kernel]") {
-		partial_1D_float_upload_test<cl_rul::Kernel, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_float_upload_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 	SECTION("partial upload [automatic]") {
-		partial_1D_float_upload_test<cl_rul::Automatic, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_float_upload_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 
 	SECTION("partial download [individual]") {
-		partial_1D_float_download_test<cl_rul::Individual, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_float_download_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 	SECTION("partial download [kernel]") {
-		partial_1D_float_download_test<cl_rul::Kernel, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_float_download_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 	SECTION("partial download [automatic]") {
-		partial_1D_float_download_test<cl_rul::Automatic, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_float_download_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 }
 
 /// /////////////////////////////////////////////////////////////////////// Char4
-
-bool operator==(const cl_char4& l, const cl_char4& r) {
-	return l.x == r.x && l.y == r.y && l.z == r.z && l.w == r.w;
-}
 
 template<typename Method, size_t TEST_L>
 void partial_1D_char4_upload_test(cl_command_queue queue, cl_mem device_buffer, cl_char4* host_buffer2) {
@@ -99,19 +76,13 @@ void partial_1D_char4_upload_test(cl_command_queue queue, cl_mem device_buffer, 
 template<typename Method, size_t TEST_L>
 void partial_1D_char4_download_test(cl_command_queue queue, cl_mem device_buffer, cl_char4* host_buffer2) {
 	const size_t DOWN_L = 2;
-	cl_rul::download_rect<cl_char4, cl_rul::Individual>(queue, device_buffer, { TEST_L,1u,1u }, { { 3u,0u,0u },{ DOWN_L,1u,1u } }, host_buffer2);
+	cl_rul::download_rect<cl_char4, Method>(queue, device_buffer, { TEST_L,1u,1u }, { { 3u,0u,0u },{ DOWN_L,1u,1u } }, host_buffer2);
 	clFinish(queue);
 	cl_char4 result[DOWN_L] = { { 3,3,3,3 }, { 4,4,4,4 } };
 	check_1D(result, host_buffer2, DOWN_L);
 }
 
 TEST_CASE("1D char4 buffers", "[1D]") {
-
-	cl_context context;
-	cl_command_queue queue;
-	cl_device_id dev = cluInitDevice(0, &context, &queue);
-
-	cl_rul::init_rect_update_lib(context, dev);
 
 	constexpr size_t TEST_L = 5;
 
@@ -126,28 +97,28 @@ TEST_CASE("1D char4 buffers", "[1D]") {
 	}
 
 	cl_int errcode;
-	cl_mem device_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, TEST_L * sizeof(cl_char4), host_buffer, &errcode);
+	cl_mem device_buffer = clCreateBuffer(GlobalCl::context(), CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, TEST_L * sizeof(cl_char4), host_buffer, &errcode);
 	REQUIRE(errcode == CL_SUCCESS);
 
 	SECTION("partial upload [individual]") {
-		partial_1D_char4_upload_test<cl_rul::Individual, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_char4_upload_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 
 	SECTION("partial upload [kernel]") {
-		partial_1D_char4_upload_test<cl_rul::Kernel, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_char4_upload_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 
 	SECTION("partial upload [automatic]") {
-		partial_1D_char4_upload_test<cl_rul::Automatic, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_char4_upload_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 
 	SECTION("partial download [individual]") {
-		partial_1D_char4_download_test<cl_rul::Individual, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_char4_download_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 	SECTION("partial download [kernel]") {
-		partial_1D_char4_download_test<cl_rul::Kernel, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_char4_download_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 	SECTION("partial download [automatic]") {
-		partial_1D_char4_download_test<cl_rul::Automatic, TEST_L>(queue, device_buffer, host_buffer2);
+		partial_1D_char4_download_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 }

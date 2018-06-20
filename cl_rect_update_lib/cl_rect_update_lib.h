@@ -91,28 +91,41 @@ namespace cl_rul {
 		template<typename T>
 		cl_kernel g_download_kernel_2D;
 
+		struct type_info {
+			std::string name;
+			int num;
+		};
+
 		template<typename T>
-		const std::string get_type_string() {
-			std::stringstream ss;
-			ss << "char[" << sizeof(T) << "]" << std::flush;
-			return ss.str();
+		inline const type_info get_type_info() {
+			int s = sizeof(T);
+			if(s % 16 == 0) return { "float4", s / 16 };
+			if(s %  8 == 0) return { "float2", s /  8 };
+			if(s %  4 == 0) return {  "float", s /  4 };
+			return { "char", s };
 		}
 
-		#define BUF_TYPE(_htype, _dtype) template<> inline const std::string get_type_string<_htype>() { return #_dtype; }
+		#define BUF_TYPE(_htype, _dtype) template<> inline const type_info get_type_info<_htype>() { return {#_dtype, 1}; }
 		#include "buffer_types.inc"
 		#undef BUF_TYPE
 
 		template<typename T>
+		inline void build_transfer_kernel(const char* source, const char* kernel_name, cl_program& out_prog, cl_kernel& out_kernel) {
+			auto ti = get_type_info<T>();
+			std::stringstream ss;
+			ss << "-D T=" << ti.name << " " << "-D NUM=" << ti.num << std::flush;
+			std::string options = ss.str();
+			//printf("options: \"%s\"\n", options.c_str());
+			out_prog = cluBuildProgramFromString(get_global_context(), get_global_device(), source, options.c_str());
+			cl_int errcode = CL_SUCCESS;
+			out_kernel = clCreateKernel(out_prog, kernel_name, &errcode);
+			CLU_ERRCHECK(errcode, "cl_rect_update_lib - kernel loading error for options: %s", options.c_str());
+		}
+
+		template<typename T>
 		inline cl_kernel get_upload_kernel_2D() {
 			if(!detail::g_upload_kernel_2D<T>) {
-				std::stringstream ss;
-				ss << "-D T=" << get_type_string<T>() << std::flush;
-				std::string options = ss.str();
-				//printf("options: \"%s\"\n", options.c_str());
-				detail::g_upload_program_2D<T> = cluBuildProgramFromString(get_global_context(), get_global_device(), kernels::upload_2D, options.c_str());
-				cl_int errcode = CL_SUCCESS;
-				detail::g_upload_kernel_2D<T> = clCreateKernel(detail::g_upload_program_2D<T>, UPLOAD_2D_KERNEL_NAME, &errcode);
-				CLU_ERRCHECK(errcode, "cl_rect_update_lib - 2d upload kernel loading error for type: %s", options.c_str());
+				build_transfer_kernel<T>(kernels::upload_2D, UPLOAD_2D_KERNEL_NAME, detail::g_upload_program_2D<T>, detail::g_upload_kernel_2D<T>);
 			}
 			return detail::g_upload_kernel_2D<T>;
 		}
@@ -120,13 +133,7 @@ namespace cl_rul {
 		template<typename T>
 		inline cl_kernel get_download_kernel_2D() {
 			if(!detail::g_download_kernel_2D<T>) {
-				std::stringstream ss;
-				ss << "-D T=" << get_type_string<T>() << std::flush;
-				std::string options = ss.str();
-				detail::g_download_program_2D<T> = cluBuildProgramFromString(get_global_context(), get_global_device(), kernels::download_2D, options.c_str());
-				cl_int errcode = CL_SUCCESS;
-				detail::g_download_kernel_2D<T> = clCreateKernel(detail::g_download_program_2D<T>, DOWNLOAD_2D_KERNEL_NAME, &errcode);
-				CLU_ERRCHECK(errcode, "cl_rect_update_lib - 2D download kernel loading error for type: %s", options.c_str());
+				build_transfer_kernel<T>(kernels::download_2D, DOWNLOAD_2D_KERNEL_NAME, detail::g_download_program_2D<T>, detail::g_download_kernel_2D<T>);
 			}
 			return detail::g_download_kernel_2D<T>;
 		}

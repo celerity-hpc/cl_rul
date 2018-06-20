@@ -3,6 +3,8 @@
 #include "global_cl.h"
 #include "test_utils.h"
 
+#include <iostream>
+
 /// /////////////////////////////////////////////////////////////////////// Float
 
 template<typename Method, size_t TEST_L>
@@ -117,5 +119,80 @@ TEST_CASE("2D float buffers", "[2D]") {
 	}
 	SECTION("column download [automatic]") {
 		float_column_download_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+}
+
+/// /////////////////////////////////////////////////////////////////////// Custom type
+
+struct CustomType {
+	cl_float2 coord;
+	cl_ushort id;
+};
+
+inline bool operator==(const CustomType& l, const CustomType& r) {
+	return l.coord.x == r.coord.x && l.coord.y == r.coord.y && l.id == r.id;
+}
+
+std::ostream& operator<<(std::ostream& o, const CustomType& ct) {
+	char buf[32];
+	sprintf(buf, "{ { %4.0f.f, %4.0f.f }, %4uu }", ct.coord.x, ct.coord.y, ct.id);
+	return o << buf;
+}
+
+template<size_t TEST_L>
+void print_custom_matrix(CustomType host_buffer[TEST_L][TEST_L], const char* name = nullptr) {
+	if(name) printf("%s:\n", name);
+	for(size_t i = 0; i < TEST_L; ++i) {
+		for(size_t j = 0; j < TEST_L; ++j) {
+			std::cout << host_buffer[i][j] << ", ";
+		}
+		printf("\n");
+	}
+}
+
+template<typename Method, size_t TEST_L>
+void partial_2D_custom_upload_test(cl_command_queue queue, cl_mem device_buffer, CustomType host_buffer2[TEST_L][TEST_L]) {
+	CustomType to_upload[2][2] = { { { { 100.f, 101.f }, 666u }, { { 110.f, 111.f }, 667u } }
+								 , { { { 200.f, 201.f }, 777u }, { { 210.f, 211.f }, 778u } } };
+
+	cl_rul::upload_rect<CustomType, Method>(queue, device_buffer, { TEST_L,TEST_L,1u }, { { 1u,1u,0u },{ 2u,2u,1u } }, (CustomType*)to_upload);
+
+	REQUIRE(clEnqueueReadBuffer(queue, device_buffer, CL_TRUE, 0, TEST_L * TEST_L * sizeof(CustomType), host_buffer2, 0, nullptr, nullptr) == CL_SUCCESS);
+
+	CustomType result[TEST_L][TEST_L] = { { { {   1.f,   1.f },   1u }, { {   2.f,   2.f },   2u }, { {   3.f,   3.f },   3u }, { {   4.f,   4.f },   4u } }
+	                                    , { { {  11.f,  11.f },  11u }, { { 100.f, 101.f }, 666u }, { { 110.f, 111.f }, 667u }, { {  14.f,  14.f },  14u } }
+	                                    , { { {  21.f,  21.f },  21u }, { { 200.f, 201.f }, 777u }, { { 210.f, 211.f }, 778u }, { {  24.f,  24.f },  24u } }
+	                                    , { { {  31.f,  31.f },  31u }, { {  32.f,  32.f },  32u }, { {  33.f,  33.f },  33u }, { {  34.f,  34.f },  34u } } };
+
+	//print_custom_matrix<TEST_L>(result, "result");
+	//print_custom_matrix<TEST_L>(host_buffer2, "host_buffer2 changed");
+	check_2D<CustomType, TEST_L>(result, host_buffer2);
+}
+
+
+TEST_CASE("2D custom type buffers", "[2D]") {
+
+	constexpr size_t TEST_L = 4;
+
+	CustomType host_buffer[TEST_L][TEST_L] = { { { {   1.f,   1.f },   1u }, { {   2.f,   2.f },   2u } ,  { {   3.f,   3.f },   3u }, { {   4.f,   4.f },   4u } }
+											 , { { {  11.f,  11.f },  11u }, { {  12.f,  12.f },  12u } ,  { {  13.f,  13.f },  13u }, { {  14.f,  14.f },  14u } }
+											 , { { {  21.f,  21.f },  21u }, { {  22.f,  22.f },  22u } ,  { {  23.f,  23.f },  23u }, { {  24.f,  24.f },  24u } }
+											 , { { {  31.f,  31.f },  31u }, { {  32.f,  32.f },  32u } ,  { {  33.f,  33.f },  33u }, { {  34.f,  34.f },  34u } } };
+
+	CustomType host_buffer2[TEST_L][TEST_L];
+	memset(host_buffer2, 0, sizeof(CustomType) * TEST_L * TEST_L);
+
+	cl_int errcode;
+	cl_mem device_buffer = clCreateBuffer(GlobalCl::context(), CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, TEST_L * TEST_L * sizeof(CustomType), host_buffer, &errcode);
+	REQUIRE(errcode == CL_SUCCESS);
+
+	SECTION("partial upload [individual]") {
+		partial_2D_custom_upload_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("partial upload [kernel]") {
+		partial_2D_custom_upload_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("partial upload [automatic]") {
+		partial_2D_custom_upload_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 }

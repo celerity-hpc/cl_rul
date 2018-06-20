@@ -6,7 +6,7 @@ namespace cl_rul {
 			#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
 			#pragma OPENCL EXTENSION cl_khr_fp64: enable
 
-			typedef struct { T x; } v_t;
+			typedef struct { T x[NUM]; } v_t;
 
 			__kernel void upload_2D(
 				__global v_t *src, __global v_t *trg,
@@ -25,7 +25,7 @@ namespace cl_rul {
 			#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
 			#pragma OPENCL EXTENSION cl_khr_fp64: enable
 
-			typedef struct { T x; } v_t;
+			typedef struct { T x[NUM]; } v_t;
 
 			__kernel void download_2D(
 				__global v_t *src, __global v_t *trg,

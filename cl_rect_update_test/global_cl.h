@@ -10,7 +10,14 @@ class GlobalCl {
 	cl_device_id _dev;
 
 	GlobalCl() {
-		cl_device_id _dev = cluInitDevice(0, &_context, &_queue);
+		size_t platform = 0;
+		auto env_plat = getenv("CL_RUL_TEST_PLATFORM");
+		if(env_plat) {
+			platform = atoi(env_plat);
+		}
+
+
+		cl_device_id _dev = cluInitDevice(platform, &_context, &_queue);
 		cl_rul::init_rect_update_lib(_context, _dev);
 	}
 

@@ -92,7 +92,7 @@ TEST_CASE("1D char4 buffers", "[1D]") {
 	for(cl_char i = 0; i < TEST_L; ++i) {
 		cl_char4 c = { i,i,i,i };
 		host_buffer[i] = c;
-		cl_char4 nc = { -i,-i,-i,-i };
+		cl_char4 nc = { (cl_char)-i, (cl_char)-i, (cl_char)-i, (cl_char)-i };
 		host_buffer2[i] = nc;
 	}
 

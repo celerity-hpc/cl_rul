@@ -31,9 +31,9 @@ TEST_CASE("1D float buffers", "[1D]") {
 	cl_float host_buffer[TEST_L];
 	cl_float host_buffer2[TEST_L];
 
-	for(int i = 0; i < TEST_L; ++i) {
+	for(size_t i = 0; i < TEST_L; ++i) {
 		host_buffer[i] = (cl_float)i;
-		host_buffer2[i] = (cl_float)-i;
+		host_buffer2[i] = -(cl_float)i;
 	}
 
 	cl_int errcode;
@@ -89,7 +89,7 @@ TEST_CASE("1D char4 buffers", "[1D]") {
 	cl_char4 host_buffer[TEST_L];
 	cl_char4 host_buffer2[TEST_L];
 
-	for(cl_char i = 0; i < TEST_L; ++i) {
+	for(cl_char i = 0; i < (cl_char)TEST_L; ++i) {
 		cl_char4 c = { i,i,i,i };
 		host_buffer[i] = c;
 		cl_char4 nc = { (cl_char)-i, (cl_char)-i, (cl_char)-i, (cl_char)-i };

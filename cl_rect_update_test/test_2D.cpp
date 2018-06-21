@@ -74,10 +74,10 @@ TEST_CASE("2D float buffers", "[2D]") {
 	cl_float host_buffer[TEST_L][TEST_L];
 	cl_float host_buffer2[TEST_L][TEST_L];
 
-	for(int i = 0; i < TEST_L; ++i) {
-		for(int j = 0; j < TEST_L; ++j) {
+	for(size_t i = 0; i < TEST_L; ++i) {
+		for(size_t j = 0; j < TEST_L; ++j) {
 			host_buffer[i][j] = (cl_float)(j + 10 * i);
-			host_buffer2[i][j] = (cl_float)-(j + 10 * i);
+			host_buffer2[i][j] = -(cl_float)(j + 10 * i);
 		}
 	}
 

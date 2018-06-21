@@ -284,7 +284,6 @@ namespace cl_rul {
 
 				const Point& o = target_box.origin;
 				const Extent& e = target_box.extent;
-				const Extent& full_e = target_buffer_size;
 
 				// if 1D, just use simple transfer
 				if(e.ys == 1 && e.zs == 1) {
@@ -428,7 +427,6 @@ namespace cl_rul {
 
 				const Point& o = source_box.origin;
 				const Extent& e = source_box.extent;
-				const Extent& full_e = source_buffer_size;
 
 				// if 1D, just use simple transfer
 				if(e.ys == 1 && e.zs == 1) {

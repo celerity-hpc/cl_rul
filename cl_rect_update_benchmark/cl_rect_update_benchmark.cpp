@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 	cl_context context;
 	cl_command_queue queue;
 	cl_device_id device = cluInitDevice(device_num, &context, &queue);
-	printf("Device: %s\n", cluGetDeviceDescription(device, (unsigned int)device_num));
+	printf(cluGetDeviceDescription(device, (unsigned int)device_num));
 
 	cl_rul::init_rect_update_lib(context, device);
 

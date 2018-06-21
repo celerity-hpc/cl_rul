@@ -178,6 +178,21 @@ inline void cluGetDeviceName(const cl_device_id device, const size_t buff_size, 
 inline void cluGetDeviceVendor(const cl_device_id device, const size_t buff_size, char *buffer) {
 	CLU_ERRCHECK(clGetDeviceInfo(device, CL_DEVICE_VENDOR, buff_size, buffer, NULL), "Error getting \"device vendor\" info");
 }
+inline void cluGetDevicePlatformName(const cl_device_id device, const size_t buff_size, char *buffer) {
+	cl_platform_id platform;
+	CLU_ERRCHECK(clGetDeviceInfo(device, CL_DEVICE_PLATFORM, sizeof(cl_platform_id), &platform, NULL), "Error getting \"device platform\" info");
+	CLU_ERRCHECK(clGetPlatformInfo(platform, CL_PLATFORM_NAME, buff_size, buffer, NULL), "Error getting \"platform name\" info");
+}
+inline void cluGetDevicePlatformVendor(const cl_device_id device, const size_t buff_size, char *buffer) {
+	cl_platform_id platform;
+	CLU_ERRCHECK(clGetDeviceInfo(device, CL_DEVICE_PLATFORM, sizeof(cl_platform_id), &platform, NULL), "Error getting \"device platform\" info");
+	CLU_ERRCHECK(clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, buff_size, buffer, NULL), "Error getting \"platform vendor\" info");
+}
+inline void cluGetDevicePlatformVersion(const cl_device_id device, const size_t buff_size, char *buffer) {
+	cl_platform_id platform;
+	CLU_ERRCHECK(clGetDeviceInfo(device, CL_DEVICE_PLATFORM, sizeof(cl_platform_id), &platform, NULL), "Error getting \"device platform\" info");
+	CLU_ERRCHECK(clGetPlatformInfo(platform, CL_PLATFORM_VERSION, buff_size, buffer, NULL), "Error getting \"platform version\" info");
+}
 inline cl_device_type cluGetDeviceType(cl_device_id device) {
 	cl_device_type retval;
 	CLU_ERRCHECK(clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(retval), &retval, NULL), "Error getting \"device type\" info");
@@ -190,10 +205,14 @@ inline const char* cluGetDeviceDescription(const cl_device_id device, unsigned i
 	static cl_bool initialized[MAX_DEVICES];
 	assert(id<MAX_DEVICES && "Device limit exceeded");
 	if(!initialized[id]) {
-		char name[255], vendor[255];
-		cluGetDeviceName(device, 255, name);
-		cluGetDeviceVendor(device, 255, vendor);
-		sprintf(descriptions[id], "%32s  |  Vendor: %32s  |  Type: %4s", name, vendor, cluDeviceTypeString(cluGetDeviceType(device)));
+		char name[64], vendor[64], platform[64], platform_vendor[64], platform_version[64];
+		cluGetDeviceName(device, 64, name);
+		cluGetDeviceVendor(device, 64, vendor);
+		cluGetDevicePlatformName(device, 64, platform);
+		cluGetDevicePlatformVendor(device, 64, platform_vendor);
+		cluGetDevicePlatformVersion(device, 64, platform_version);
+		sprintf(descriptions[id], "Device: %39s  |  Vendor: %32s  |  Type: %4s\nPlatform: %37s  |  Vendor: %32s  |  Version: %4s\n",
+			name, vendor, cluDeviceTypeString(cluGetDeviceType(device)), platform, platform_vendor, platform_version);
 	}
 	return descriptions[id];
 }

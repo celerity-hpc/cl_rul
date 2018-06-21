@@ -1,5 +1,6 @@
 #pragma once
 
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 #define CL_USE_DEPRECATED_OPENCL_2_0_APIS
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
@@ -272,6 +273,6 @@ inline const char* cluErrorString(cl_int err) {
 		case CL_INVALID_PIPE_SIZE: return "CL_INVALID_PIPE_SIZE";
 		case CL_INVALID_DEVICE_QUEUE: return "CL_INVALID_DEVICE_QUEUE";
 	}
-	sprintf(buffer, "UNKNOWN_ERROR (%ld)", err);
+	sprintf(buffer, "UNKNOWN_ERROR (%ld)", (long)err);
 	return buffer;
 }

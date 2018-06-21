@@ -4,6 +4,8 @@
 #include "test_utils.h"
 
 #include <iostream>
+#include <cstdlib>
+#include <cstring>
 
 /// /////////////////////////////////////////////////////////////////////// Float
 

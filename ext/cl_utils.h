@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef _WIN32
 #include <alloca.h>
@@ -191,7 +192,9 @@ inline void cluGetDevicePlatformVendor(const cl_device_id device, const size_t b
 inline void cluGetDevicePlatformVersion(const cl_device_id device, const size_t buff_size, char *buffer) {
 	cl_platform_id platform;
 	CLU_ERRCHECK(clGetDeviceInfo(device, CL_DEVICE_PLATFORM, sizeof(cl_platform_id), &platform, NULL), "Error getting \"device platform\" info");
-	CLU_ERRCHECK(clGetPlatformInfo(platform, CL_PLATFORM_VERSION, buff_size, buffer, NULL), "Error getting \"platform version\" info");
+	if(clGetPlatformInfo(platform, CL_PLATFORM_VERSION, buff_size, buffer, NULL) != CL_SUCCESS) {
+		strcpy(buffer, "UNKNOWN");
+	}
 }
 inline cl_device_type cluGetDeviceType(cl_device_id device) {
 	cl_device_type retval;

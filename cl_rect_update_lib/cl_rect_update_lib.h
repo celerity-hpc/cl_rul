@@ -220,7 +220,7 @@ namespace cl_rul {
 				const Extent& e = target_box.extent;
 				const Extent& full_e = target_buffer_size;
 
-				const size_t buffer_origin[3] = { o.x, o.y, o.z };
+				const size_t buffer_origin[3] = { o.x * sizeof(T), o.y, o.z };
 				const size_t host_origin[3] = { 0, 0, 0 };
 				const size_t region[3] = { e.xs * sizeof(T), e.ys, e.zs };
 				size_t buffer_row_pitch = full_e.xs * sizeof(T);
@@ -361,13 +361,13 @@ namespace cl_rul {
 				const Extent& e = source_box.extent;
 				const Extent& full_e = source_buffer_size;
 
-				const size_t buffer_origin[3] = { o.x, o.y, o.z };
+				const size_t buffer_origin[3] = { o.x * sizeof(T), o.y, o.z };
 				const size_t host_origin[3] = { 0, 0, 0 };
-				const size_t region[3] = { e.x, e.y, e.z };
+				const size_t region[3] = { e.xs * sizeof(T), e.ys, e.zs };
 				size_t buffer_row_pitch = full_e.xs * sizeof(T);
 				size_t buffer_slice_pitch = full_e.slice_size() * sizeof(T);
-				size_t host_row_pitch = sizeof(T);
-				size_t host_slice_pitch = 0;
+				size_t host_row_pitch = e.xs * sizeof(T);
+				size_t host_slice_pitch = e.slice_size() * sizeof(T);
 				cl_int errcode = clEnqueueReadBufferRect(queue, source_buffer, CL_FALSE,
 					buffer_origin, host_origin, region,
 					buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch,

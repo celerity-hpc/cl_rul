@@ -1,6 +1,7 @@
 cmake_minimum_required (VERSION 3.7)
 
 project(cl_rul LANGUAGES CXX)
+enable_testing()
 
 if(MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_CRT_SECURE_NO_WARNINGS")
@@ -23,13 +24,13 @@ if(MSVC) # Generate a project for editing the header-only interface library in t
   add_custom_target(cl_rect_update_lib.headers SOURCES ${LIB_HEADER_FILES})
 endif()
 
-
 # Unit tests
 
 file(GLOB TEST_SRC_FILES cl_rect_update_test/*.cpp cl_rect_update_test/*.h)
 add_executable(cl_rect_update_test cl_rect_update_test/cl_rect_update_test.cc ${TEST_SRC_FILES})
 target_link_libraries(cl_rect_update_test cl_rect_update_lib)
 
+add_test(cl_rect_update_test ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cl_rect_update_test)
 
 # Benchmark
 

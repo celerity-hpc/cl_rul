@@ -42,6 +42,9 @@ void float_column_upload_test(cl_command_queue queue, cl_mem device_buffer, cl_f
 	                                  , { 30.f,  31.f,  32.f,  33.f, 103.f }
 	                                  , { 40.f,  41.f,  42.f,  43.f, 104.f } };
 
+	print_2D<cl_float, TEST_L>(host_buffer2, "Result");
+	print_2D<cl_float, TEST_L>(result, "Expected");
+
 	check_2D<cl_float, TEST_L>(result, host_buffer2);
 }
 
@@ -84,6 +87,9 @@ TEST_CASE("2D float buffers", "[2D]") {
 	SECTION("partial upload [individual]") {
 		partial_2D_float_upload_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
+	SECTION("partial upload [rect]") {
+		partial_2D_float_upload_test<cl_rul::ClRect, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
 	SECTION("partial upload [kernel]") {
 		partial_2D_float_upload_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
@@ -93,6 +99,9 @@ TEST_CASE("2D float buffers", "[2D]") {
 
 	SECTION("column upload [individual]") {
 		float_column_upload_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("column upload [rect]") {
+		float_column_upload_test<cl_rul::ClRect, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 	SECTION("column upload [kernel]") {
 		float_column_upload_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
@@ -104,6 +113,9 @@ TEST_CASE("2D float buffers", "[2D]") {
 	SECTION("partial download [individual]") {
 		partial_2D_float_download_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
+	SECTION("partial download [rect]") {
+		partial_2D_float_download_test<cl_rul::ClRect, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
 	SECTION("partial download [kernel]") {
 		partial_2D_float_download_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
@@ -113,6 +125,9 @@ TEST_CASE("2D float buffers", "[2D]") {
 
 	SECTION("column download [individual]") {
 		float_column_download_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("column download [rect]") {
+		float_column_download_test<cl_rul::ClRect, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 	SECTION("column download [kernel]") {
 		float_column_download_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
@@ -188,6 +203,9 @@ TEST_CASE("2D custom type buffers", "[2D]") {
 
 	SECTION("partial upload [individual]") {
 		partial_2D_custom_upload_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("partial upload [clrect]") {
+		partial_2D_custom_upload_test<cl_rul::ClRect, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 	SECTION("partial upload [kernel]") {
 		partial_2D_custom_upload_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);

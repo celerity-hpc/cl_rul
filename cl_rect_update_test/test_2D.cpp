@@ -42,9 +42,8 @@ void float_column_upload_test(cl_command_queue queue, cl_mem device_buffer, cl_f
 	                                  , { 30.f,  31.f,  32.f,  33.f, 103.f }
 	                                  , { 40.f,  41.f,  42.f,  43.f, 104.f } };
 
-	print_2D<cl_float, TEST_L>(host_buffer2, "Result");
-	print_2D<cl_float, TEST_L>(result, "Expected");
-
+	//print_2D<cl_float, TEST_L>(host_buffer2, "Result");
+	//print_2D<cl_float, TEST_L>(result, "Expected");
 	check_2D<cl_float, TEST_L>(result, host_buffer2);
 }
 
@@ -184,15 +183,27 @@ void partial_2D_custom_upload_test(cl_command_queue queue, cl_mem device_buffer,
 	check_2D<CustomType, TEST_L>(result, host_buffer2);
 }
 
+template<typename Method, size_t TEST_L>
+void partial_2D_custom_download_test(cl_command_queue queue, cl_mem device_buffer, CustomType host_buffer2[TEST_L][TEST_L]) {
+
+	cl_rul::download_rect<CustomType, Method>(queue, device_buffer, { TEST_L,TEST_L,1u }, { { 2u,1u,0u },{ 2u,2u,1u } }, (CustomType*)host_buffer2);
+	clFinish(queue);
+
+	CustomType result[4] = { { {  13.f,  13.f },  13u }, { {  14.f,  14.f },  14u }
+	                       , { {  23.f,  23.f },  23u }, { {  24.f,  24.f },  24u } };
+
+	check_1D<CustomType>(result, (CustomType*)host_buffer2, 4);
+}
+
 
 TEST_CASE("2D custom type buffers", "[2D]") {
 
 	constexpr size_t TEST_L = 4;
 
-	CustomType host_buffer[TEST_L][TEST_L] = { { { {   1.f,   1.f },   1u }, { {   2.f,   2.f },   2u } ,  { {   3.f,   3.f },   3u }, { {   4.f,   4.f },   4u } }
-											 , { { {  11.f,  11.f },  11u }, { {  12.f,  12.f },  12u } ,  { {  13.f,  13.f },  13u }, { {  14.f,  14.f },  14u } }
-											 , { { {  21.f,  21.f },  21u }, { {  22.f,  22.f },  22u } ,  { {  23.f,  23.f },  23u }, { {  24.f,  24.f },  24u } }
-											 , { { {  31.f,  31.f },  31u }, { {  32.f,  32.f },  32u } ,  { {  33.f,  33.f },  33u }, { {  34.f,  34.f },  34u } } };
+	CustomType host_buffer[TEST_L][TEST_L] = { { { {   1.f,   1.f },   1u }, { {   2.f,   2.f },   2u } , { {   3.f,   3.f },   3u }, { {   4.f,   4.f },   4u } }
+											 , { { {  11.f,  11.f },  11u }, { {  12.f,  12.f },  12u } , { {  13.f,  13.f },  13u }, { {  14.f,  14.f },  14u } }
+											 , { { {  21.f,  21.f },  21u }, { {  22.f,  22.f },  22u } , { {  23.f,  23.f },  23u }, { {  24.f,  24.f },  24u } }
+											 , { { {  31.f,  31.f },  31u }, { {  32.f,  32.f },  32u } , { {  33.f,  33.f },  33u }, { {  34.f,  34.f },  34u } } };
 
 	CustomType host_buffer2[TEST_L][TEST_L];
 	memset(host_buffer2, 0, sizeof(CustomType) * TEST_L * TEST_L);
@@ -212,5 +223,18 @@ TEST_CASE("2D custom type buffers", "[2D]") {
 	}
 	SECTION("partial upload [automatic]") {
 		partial_2D_custom_upload_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+
+	SECTION("partial download [individual]") {
+		partial_2D_custom_download_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("partial download [clrect]") {
+		partial_2D_custom_download_test<cl_rul::ClRect, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("partial download [kernel]") {
+		partial_2D_custom_download_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("partial download [automatic]") {
+		partial_2D_custom_download_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 }

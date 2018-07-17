@@ -52,20 +52,30 @@ namespace cl_rul {
 
 	namespace detail {
 
+// On Windows, CL_RUL_GLOBAL_STORAGE can be used to enable sharing of the
+// global context across DLLs, by setting __declspec(dllexport / dllimport).
+#ifndef CL_RUL_GLOBAL_STORAGE
+#define CL_RUL_GLOBAL_STORAGE
+#endif
+
+		extern CL_RUL_GLOBAL_STORAGE cl_context g_context;
+		extern CL_RUL_GLOBAL_STORAGE cl_device_id g_device;
+
+#ifdef CL_RUL_IMPL
+		cl_context g_context;
+		cl_device_id g_device;
+#endif
+
 		constexpr const char* UPLOAD_2D_KERNEL_NAME = "upload_2D";
 		constexpr const char* DOWNLOAD_2D_KERNEL_NAME = "download_2D";
 
-		// workaround until C++ 17 inline globals are more widely available
-
 		inline cl_context get_global_context(cl_context c_in = nullptr) {
-			static cl_context g_context;
 			if(c_in) g_context = c_in;
 			assert(g_context && "cl_rect_upate_lib - request global context before setting it -- did you call init_rect_update_lib?");
 			return g_context;
 		}
 
 		inline cl_device_id get_global_device(cl_device_id dev_in = nullptr) {
-			static cl_device_id g_device;
 			if(dev_in) g_device = dev_in;
 			assert(g_device && "cl_rect_upate_lib - request global device before setting it -- did you call init_rect_update_lib?");
 			return g_device;

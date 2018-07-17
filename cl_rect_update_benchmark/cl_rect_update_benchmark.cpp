@@ -3,6 +3,7 @@
 #include <string.h>
 #include <algorithm>
 
+#define CL_RUL_IMPL
 #include "../cl_rect_update_lib/cl_rect_update_lib.h"
 
 #define KERNEL_FILE "cl_rect_update_benchmark.cl"

@@ -1,8 +1,13 @@
 #pragma once
 
+// On Windows, CL_RUL_GLOBAL_STORAGE can be used to enable sharing of the
+// global context across DLLs, by setting __declspec(dllexport / dllimport).
+#ifndef CL_RUL_GLOBAL_STORAGE
+#define CL_RUL_GLOBAL_STORAGE
+#endif
+
 #include "../ext/cl_utils.h"
 
-#include <algorithm>
 #include <string>
 #include <sstream>
 #include <cassert>
@@ -52,54 +57,147 @@ namespace cl_rul {
 
 	namespace detail {
 
-// On Windows, CL_RUL_GLOBAL_STORAGE can be used to enable sharing of the
-// global context across DLLs, by setting __declspec(dllexport / dllimport).
-#ifndef CL_RUL_GLOBAL_STORAGE
-#define CL_RUL_GLOBAL_STORAGE
-#endif
+		class cl_rul_context {
+		public:
+			void initialize(cl_context ctx, cl_device_id device) {
+				assert(cl_ctx == nullptr && cl_device == nullptr && "cl_rect_update_lib - already initialized.");
+				cl_ctx = ctx;
+				cl_device = device;
+			}
 
-		extern CL_RUL_GLOBAL_STORAGE cl_context g_context;
-		extern CL_RUL_GLOBAL_STORAGE cl_device_id g_device;
+			void reset() {
+				cl_ctx = nullptr;
+				cl_device = nullptr;
+				if(staging_buffer != nullptr) {
+					clReleaseMemObject(staging_buffer);
+					staging_buffer = nullptr;
+					staging_buffer_size = 0;
+				}
+
+				// FIXME: This doesn't reset user provided types!
+				#define BUF_TYPE(_htype, _dtype) reset_kernel<_htype>();
+				#include "buffer_types.inc"
+				#undef BUF_TYPE
+			}
+
+			cl_context get_cl_context() const {
+				assert(cl_ctx && "cl_rect_update_lib - request global CL context before setting it -- did you call init_rect_update_lib?");
+				return cl_ctx;
+			}
+			cl_device_id get_cl_device_id() const {
+				assert(cl_device && "cl_rect_update_lib - request global CL device before setting it -- did you call init_rect_update_lib?");
+				return cl_device;
+			}
+
+			cl_mem get_staging_buffer(size_t size_in_bytes) {
+				//printf("cl_rect_update_lib - requesting staging buffer of size %u, available: %u at %p\n", (unsigned)size_in_bytes, (unsigned)staging_buffer_size, staging_buffer);
+				if(staging_buffer_size < size_in_bytes) {
+					if(staging_buffer != nullptr) clReleaseMemObject(staging_buffer);
+					cl_int errcode = CL_SUCCESS;
+					staging_buffer = clCreateBuffer(get_cl_context(), CL_MEM_READ_WRITE, size_in_bytes, nullptr, &errcode);
+					CLU_ERRCHECK(errcode, "cl_rect_update_lib - error allocating staging buffer of size %u", (unsigned)size_in_bytes);
+					//printf("cl_rect_update_lib - (re-)allocated staging buffer of size %u at %p\n", (unsigned)size_in_bytes, staging_buffer);
+					staging_buffer_size = size_in_bytes;
+				}
+				return staging_buffer;
+			}
+
+			template<typename T>
+			cl_program& upload_program_2D();
+
+			template<typename T>
+			cl_kernel& upload_kernel_2D();
+
+			template<typename T>
+			cl_program& download_program_2D();
+
+			template<typename T>
+			cl_kernel& download_kernel_2D();
+
+		private:
+			cl_context cl_ctx = nullptr;
+			cl_device_id cl_device = nullptr;
+			cl_mem staging_buffer = nullptr;
+			size_t staging_buffer_size = 0;
+
+			template<typename T>
+			void reset_kernel() {
+				if(upload_program_2D<T>() != nullptr) clReleaseProgram(upload_program_2D<T>());
+				if(upload_kernel_2D<T>() != nullptr) clReleaseKernel(upload_kernel_2D<T>());
+				if(download_program_2D<T>() != nullptr) clReleaseProgram(download_program_2D<T>());
+				if(download_kernel_2D<T>() != nullptr) clReleaseKernel(download_kernel_2D<T>());
+				upload_program_2D<T>() = nullptr;
+				upload_kernel_2D<T>() = nullptr;
+				download_program_2D<T>() = nullptr;
+				download_kernel_2D<T>() = nullptr;
+			}
+		};
+
+		#define BODY_PROGRAM { static cl_program prog = nullptr; return prog; }
+		#define BODY_KERNEL { static cl_kernel kernel = nullptr; return kernel; }
+
+		// Provide default implementation for user-defined types.
+		// This means that kernels for user-defined types are local to each translation unit.
+		// Unfortunately there currently is no way (afaik) around this.
+		template<typename T> cl_program& cl_rul_context::upload_program_2D() BODY_PROGRAM;
+		template<typename T> cl_kernel& cl_rul_context::upload_kernel_2D() BODY_KERNEL;
+		template<typename T> cl_program& cl_rul_context::download_program_2D() BODY_PROGRAM;
+		template<typename T> cl_kernel& cl_rul_context::download_kernel_2D() BODY_KERNEL;
+
+		// Mark all predefined types as external, so the kernels can be shared across translation units.
+		#define BUF_TYPE(_htype, _dtype) template<> CL_RUL_GLOBAL_STORAGE cl_program& cl_rul_context::upload_program_2D<_htype>();
+		#include "buffer_types.inc"
+		#undef BUF_TYPE
+
+		#define BUF_TYPE(_htype, _dtype) template<> CL_RUL_GLOBAL_STORAGE cl_kernel& cl_rul_context::upload_kernel_2D<_htype>();
+		#include "buffer_types.inc"
+		#undef BUF_TYPE
+
+		#define BUF_TYPE(_htype, _dtype) template<> CL_RUL_GLOBAL_STORAGE cl_program& cl_rul_context::download_program_2D<_htype>();
+		#include "buffer_types.inc"
+		#undef BUF_TYPE
+
+		#define BUF_TYPE(_htype, _dtype) template<> CL_RUL_GLOBAL_STORAGE cl_kernel& cl_rul_context::download_kernel_2D<_htype>();
+		#include "buffer_types.inc"
+		#undef BUF_TYPE
+
+		extern CL_RUL_GLOBAL_STORAGE cl_rul_context g_context;
 
 #ifdef CL_RUL_IMPL
-		cl_context g_context;
-		cl_device_id g_device;
+		cl_rul_context g_context;
+
+		#define BUF_TYPE(_htype, _dtype) template<> CL_RUL_GLOBAL_STORAGE cl_program& cl_rul_context::upload_program_2D<_htype>() BODY_PROGRAM;
+		#include "buffer_types.inc"
+		#undef BUF_TYPE
+
+		#define BUF_TYPE(_htype, _dtype) template<> CL_RUL_GLOBAL_STORAGE cl_kernel& cl_rul_context::upload_kernel_2D<_htype>() BODY_KERNEL;
+		#include "buffer_types.inc"
+		#undef BUF_TYPE
+
+		#define BUF_TYPE(_htype, _dtype) template<> CL_RUL_GLOBAL_STORAGE cl_program& cl_rul_context::download_program_2D<_htype>() BODY_PROGRAM;
+		#include "buffer_types.inc"
+		#undef BUF_TYPE
+
+		#define BUF_TYPE(_htype, _dtype) template<> CL_RUL_GLOBAL_STORAGE cl_kernel& cl_rul_context::download_kernel_2D<_htype>() BODY_KERNEL;
+		#include "buffer_types.inc"
+		#undef BUF_TYPE
+
 #endif
+
+		#undef BODY_PROGRAM
+		#undef BODY_KERNEL
 
 		constexpr const char* UPLOAD_2D_KERNEL_NAME = "upload_2D";
 		constexpr const char* DOWNLOAD_2D_KERNEL_NAME = "download_2D";
 
-		inline cl_context get_global_context(cl_context c_in = nullptr) {
-			if(c_in) g_context = c_in;
-			assert(g_context && "cl_rect_upate_lib - request global context before setting it -- did you call init_rect_update_lib?");
-			return g_context;
-		}
-
-		inline cl_device_id get_global_device(cl_device_id dev_in = nullptr) {
-			if(dev_in) g_device = dev_in;
-			assert(g_device && "cl_rect_upate_lib - request global device before setting it -- did you call init_rect_update_lib?");
-			return g_device;
-		}
-
 		inline void check_global_state_validity(cl_command_queue queue) {
 			cl_context local_ctx;
 			clGetCommandQueueInfo(queue, CL_QUEUE_CONTEXT, sizeof(cl_context), &local_ctx, nullptr);
-			assert(local_ctx == get_global_context());
+			assert(local_ctx == g_context.get_cl_context());
 			cl_device_id local_dev;
 			clGetCommandQueueInfo(queue, CL_QUEUE_DEVICE, sizeof(cl_device_id), &local_dev, nullptr);
-			assert(local_dev == get_global_device());
+			assert(local_dev == g_context.get_cl_device_id());
 		}
-
-		/// Kernel management
-
-		template<typename T>
-		cl_program g_upload_program_2D;
-		template<typename T>
-		cl_kernel g_upload_kernel_2D;
-		template<typename T>
-		cl_program g_download_program_2D;
-		template<typename T>
-		cl_kernel g_download_kernel_2D;
 
 		struct type_info {
 			std::string name;
@@ -107,7 +205,7 @@ namespace cl_rul {
 		};
 
 		template<typename T>
-		inline const type_info get_type_info() {
+		const type_info get_type_info() {
 			int s = sizeof(T);
 			if(s % 16 == 0) return { "float4", s / 16 };
 			if(s %  8 == 0) return { "float2", s /  8 };
@@ -120,63 +218,59 @@ namespace cl_rul {
 		#undef BUF_TYPE
 
 		template<typename T>
-		inline void build_transfer_kernel(const char* source, const char* kernel_name, cl_program& out_prog, cl_kernel& out_kernel) {
+		void build_transfer_kernel(const char* source, const char* kernel_name, cl_program& out_prog, cl_kernel& out_kernel) {
 			auto ti = get_type_info<T>();
 			std::stringstream ss;
 			ss << "-D T=" << ti.name << " " << "-D NUM=" << ti.num << std::flush;
 			std::string options = ss.str();
 			//printf("options: \"%s\"\n", options.c_str());
-			out_prog = cluBuildProgramFromString(get_global_context(), get_global_device(), source, options.c_str());
+			out_prog = cluBuildProgramFromString(g_context.get_cl_context(), g_context.get_cl_device_id(), source, options.c_str());
 			cl_int errcode = CL_SUCCESS;
 			out_kernel = clCreateKernel(out_prog, kernel_name, &errcode);
 			CLU_ERRCHECK(errcode, "cl_rect_update_lib - kernel loading error for options: %s", options.c_str());
 		}
 
 		template<typename T>
-		inline cl_kernel get_upload_kernel_2D() {
-			if(!detail::g_upload_kernel_2D<T>) {
-				build_transfer_kernel<T>(kernels::upload_2D, UPLOAD_2D_KERNEL_NAME, detail::g_upload_program_2D<T>, detail::g_upload_kernel_2D<T>);
+		cl_kernel get_upload_kernel_2D() {
+			if(!g_context.upload_kernel_2D<T>()) {
+				build_transfer_kernel<T>(kernels::upload_2D, UPLOAD_2D_KERNEL_NAME, g_context.upload_program_2D<T>(), g_context.upload_kernel_2D<T>());
 			}
-			return detail::g_upload_kernel_2D<T>;
+			return g_context.upload_kernel_2D<T>();
 		}
 
 		template<typename T>
-		inline cl_kernel get_download_kernel_2D() {
-			if(!detail::g_download_kernel_2D<T>) {
-				build_transfer_kernel<T>(kernels::download_2D, DOWNLOAD_2D_KERNEL_NAME, detail::g_download_program_2D<T>, detail::g_download_kernel_2D<T>);
+		cl_kernel get_download_kernel_2D() {
+			if(!g_context.download_kernel_2D<T>()) {
+				build_transfer_kernel<T>(kernels::download_2D, DOWNLOAD_2D_KERNEL_NAME, g_context.download_program_2D<T>(), g_context.download_kernel_2D<T>());
 			}
-			return detail::g_download_kernel_2D<T>;
+			return g_context.download_kernel_2D<T>();
 		}
 
-		/// Buffer management
+	} // namespace detail
 
-		inline cl_mem get_staging_buffer(size_t size_in_bytes) {
-			thread_local cl_mem buff = nullptr;
-			thread_local size_t allocated_size = 0;
-			//printf("cl_rect_update_lib - requesting staging buffer of size %u, available: %u at %p\n", (unsigned)size_in_bytes, (unsigned)allocated_size, buff);
-			if(allocated_size < size_in_bytes) {
-				if(buff) clReleaseMemObject(buff);
-				cl_int errcode = CL_SUCCESS;
-				buff = clCreateBuffer(get_global_context(), CL_MEM_READ_WRITE, size_in_bytes, nullptr, &errcode);
-				CLU_ERRCHECK(errcode, "cl_rect_update_lib - error allocating staging buffer of size %u", (unsigned)size_in_bytes);
-				//printf("cl_rect_update_lib - (re-)allocated staging buffer of size %u at %p\n", (unsigned)size_in_bytes, buff);
-				allocated_size = size_in_bytes;
-			}
-			return buff;
+	/**
+	 * @brief Initializes the cl_rect_update library. This must be called before using any of the other methods.
+	 *
+	 * @param eager If true, transfer kernels for all predefined types will be compiled immediately, instead of when they're first required.
+	 */
+	inline void init_rect_update_lib(cl_context context, cl_device_id device, bool eager = false) {
+		detail::g_context.initialize(context, device);
+
+		if (eager) {
+			// TODO make pre-compilation configurable? could take some time
+			#define BUF_TYPE(_htype, _dtype) detail::get_upload_kernel_2D<_htype>();
+			#include "buffer_types.inc"
+			#undef BUF_TYPE
+
+			#define BUF_TYPE(_htype, _dtype) detail::get_download_kernel_2D<_htype>();
+			#include "buffer_types.inc"
+			#undef BUF_TYPE
 		}
 	}
 
-	inline void init_rect_update_lib(cl_context context, cl_device_id device) {
-		// *set* the globals
-		detail::get_global_context(context);
-		detail::get_global_device(device);
-
-		// TODO make pre-compilation configurable? could take some time
-		#define BUF_TYPE(_htype, _dtype) detail::get_upload_kernel_2D<_htype>();
-		#include "buffer_types.inc"
-		#undef BUF_TYPE
+	inline void reset_rect_update_lib() {
+		detail::g_context.reset();
 	}
-
 
 	/// Upload functions ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -253,7 +347,7 @@ namespace cl_rul {
 			// transfer linearly to staging buffer
 
 			size_t required_staging_size = target_box.size() * sizeof(T);
-			cl_mem staging_buffer = get_staging_buffer(required_staging_size);
+			cl_mem staging_buffer = g_context.get_staging_buffer(required_staging_size);
 			cl_event ev_staging;
 			cl_int errcode = clEnqueueWriteBuffer(queue, staging_buffer, CL_FALSE, 0, required_staging_size, linearized_host_data_source, 0, NULL, &ev_staging);
 			CLU_ERRCHECK(errcode, "cl_rect_upate_lib - error enqueueing staging transfer");
@@ -397,7 +491,7 @@ namespace cl_rul {
 			// get staging buffer
 
 			size_t required_staging_size = e.size() * sizeof(T);
-			cl_mem staging_buffer = get_staging_buffer(required_staging_size);
+			cl_mem staging_buffer = g_context.get_staging_buffer(required_staging_size);
 
 			// use kernel to write to staging buffer
 			// parameters:
@@ -464,7 +558,11 @@ namespace cl_rul {
 
 	template<typename T, typename Method = Automatic>
 	cl_event download_rect(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target) {
+#ifndef NDEBUG
+		detail::check_global_state_validity(queue);
+#endif
 		return detail::rect_downloader<T, Method>{}(queue, source_buffer, source_buffer_size, source_box, linearized_host_data_target);
 	}
 
 } // namespace cl_rul
+

@@ -1,7 +1,7 @@
 
 #include "../ext/cl_utils.h"
-#include <string.h>
 #include <algorithm>
+#include <limits>
 
 #define CL_RUL_IMPL
 #include "../cl_rect_update_lib/cl_rect_update_lib.h"
@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 	cl_device_id device = cluInitDevice(device_num, &context, &queue);
 	printf("\n%s",cluGetDeviceDescription(device, (unsigned int)device_num));
 
-	cl_rul::init_rect_update_lib(context, device);
+	cl_rul::init_rect_update_lib(context, device, true);
 
 	// data
 
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
 		}
 
 		double results[NUM_SIZES][NUM_TYPES];
-		std::fill(&results[0][0], &results[NUM_SIZES][0], 1000000.0f);
+		std::fill(&results[0][0], &results[NUM_SIZES][0], std::numeric_limits<float>::infinity());
 
 		cl_event cl_ev_before; // just for measurement
 		auto start_bench = [&](int s) {
@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
 		}
 
 		double results[NUM_SIZES][NUM_TYPES];
-		std::fill(&results[0][0], &results[NUM_SIZES][0], 1000000.0f);
+		std::fill(&results[0][0], &results[NUM_SIZES][0], std::numeric_limits<float>::infinity());
 
 		cl_event cl_ev_before; // just for measurement
 		auto start_bench = [&](int s) {

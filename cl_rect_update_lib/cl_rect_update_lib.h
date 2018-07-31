@@ -386,12 +386,14 @@ namespace cl_rul {
 			cl_event operator()(cl_command_queue queue, cl_mem target_buffer, const Extent& target_buffer_size, const Box& target_box, const T *linearized_host_data_source) {
 				cl_event ev_ret = nullptr;
 
+				const Extent& s = target_buffer_size;
 				const Point& o = target_box.origin;
 				const Extent& e = target_box.extent;
 
 				// if 1D, just use simple transfer
 				if(e.ys == 1 && e.zs == 1) {
-					cl_int errcode = clEnqueueWriteBuffer(queue, target_buffer, CL_FALSE, o.x * sizeof(T), e.xs * sizeof(T), linearized_host_data_source, 0, NULL, &ev_ret);
+					const size_t linear_offset = o.z * s.xs * s.ys + o.y * s.xs + o.x;
+					cl_int errcode = clEnqueueWriteBuffer(queue, target_buffer, CL_FALSE, linear_offset * sizeof(T), e.xs * sizeof(T), linearized_host_data_source, 0, NULL, &ev_ret);
 					CLU_ERRCHECK(errcode, "cl_rect_upate_lib - upload_rect: error enqueueing transfer");
 					return ev_ret;
 				}
@@ -529,12 +531,14 @@ namespace cl_rul {
 			cl_event operator()(cl_command_queue queue, cl_mem source_buffer, const Extent& source_buffer_size, const Box& source_box, T *linearized_host_data_target) {
 				cl_event ev_ret = nullptr;
 
+				const Extent& s = source_buffer_size;
 				const Point& o = source_box.origin;
 				const Extent& e = source_box.extent;
 
 				// if 1D, just use simple transfer
 				if(e.ys == 1 && e.zs == 1) {
-					cl_int errcode = clEnqueueReadBuffer(queue, source_buffer, CL_FALSE, o.x * sizeof(T), e.xs * sizeof(T), linearized_host_data_target, 0, NULL, &ev_ret);
+					const size_t linear_offset = o.z * s.xs * s.ys + o.y * s.xs + o.x;
+					cl_int errcode = clEnqueueReadBuffer(queue, source_buffer, CL_FALSE, linear_offset * sizeof(T), e.xs * sizeof(T), linearized_host_data_target, 0, NULL, &ev_ret);
 					CLU_ERRCHECK(errcode, "cl_rect_update_lib - download_rect: error enqueueing transfer");
 					return ev_ret;
 				}

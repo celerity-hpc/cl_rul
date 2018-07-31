@@ -50,6 +50,23 @@ void float_column_upload_test(cl_command_queue queue, cl_mem device_buffer, cl_f
 }
 
 template<typename Method, size_t TEST_L>
+void single_cell_upload_test(cl_command_queue queue, cl_mem device_buffer, cl_float host_buffer2[TEST_L][TEST_L]) {
+	cl_float to_upload = { 103.f };
+
+	cl_rul::upload_rect<cl_float, Method>(queue, device_buffer, { TEST_L,TEST_L,1u }, { { 4u,3u,0u },{ 1u,1u,1u } }, &to_upload);
+
+	REQUIRE(clEnqueueReadBuffer(queue, device_buffer, CL_TRUE, 0, TEST_L * TEST_L * sizeof(float), host_buffer2, 0, nullptr, nullptr) == CL_SUCCESS);
+
+	cl_float result[TEST_L][TEST_L] = { {  0.f,   1.f,   2.f,   3.f, 4.f }
+	                                  , { 10.f,  11.f,  12.f,  13.f, 14.f }
+	                                  , { 20.f,  21.f,  22.f,  23.f, 24.f }
+	                                  , { 30.f,  31.f,  32.f,  33.f, 103.f }
+	                                  , { 40.f,  41.f,  42.f,  43.f, 44.f } };
+
+	check_2D<cl_float, TEST_L>(result, host_buffer2);
+}
+
+template<typename Method, size_t TEST_L>
 void partial_2D_float_download_test(cl_command_queue queue, cl_mem device_buffer, cl_float host_buffer2[TEST_L][TEST_L]) {
 	cl_rul::download_rect<cl_float, Method>(queue, device_buffer, { TEST_L,TEST_L,1u }, { { 2u,1u,0u },{ 2u,2u,1u } }, (cl_float*)host_buffer2);
 	clFinish(queue);
@@ -65,6 +82,14 @@ void float_column_download_test(cl_command_queue queue, cl_mem device_buffer, cl
 	//print_1D((cl_float*)host_buffer2, 4);
 	cl_float result[TEST_L] = { 4.f, 14.f, 24.f, 34.f, 44.f };
 	check_1D(result, (cl_float*)host_buffer2, TEST_L);
+}
+
+template<typename Method, size_t TEST_L>
+void single_cell_download_test(cl_command_queue queue, cl_mem device_buffer) {
+	float result;
+	cl_rul::download_rect<cl_float, Method>(queue, device_buffer, { TEST_L,TEST_L,1u }, { { 4u,3u,0u },{ 1u,1u,1u } }, &result);
+	clFinish(queue);
+	REQUIRE(result == 34.f);
 }
 
 TEST_CASE("2D float buffers", "[2D]") {
@@ -111,6 +136,19 @@ TEST_CASE("2D float buffers", "[2D]") {
 		float_column_upload_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
 
+	SECTION("single cell upload [individual]") {
+		single_cell_upload_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("single cell upload [rect]") {
+		single_cell_upload_test<cl_rul::ClRect, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("single cell upload [kernel]") {
+		single_cell_upload_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+	SECTION("single cell upload [automatic]") {
+		single_cell_upload_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+
 	SECTION("partial download [individual]") {
 		partial_2D_float_download_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
 	}
@@ -135,6 +173,19 @@ TEST_CASE("2D float buffers", "[2D]") {
 	}
 	SECTION("column download [automatic]") {
 		float_column_download_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer, host_buffer2);
+	}
+
+	SECTION("single cell download [individual]") {
+		single_cell_download_test<cl_rul::Individual, TEST_L>(GlobalCl::queue(), device_buffer);
+	}
+	SECTION("single cell download [rect]") {
+		single_cell_download_test<cl_rul::ClRect, TEST_L>(GlobalCl::queue(), device_buffer);
+	}
+	SECTION("single cell download [kernel]") {
+		single_cell_download_test<cl_rul::Kernel, TEST_L>(GlobalCl::queue(), device_buffer);
+	}
+	SECTION("single_cell download [automatic]") {
+		single_cell_download_test<cl_rul::Automatic, TEST_L>(GlobalCl::queue(), device_buffer);
 	}
 }
 
